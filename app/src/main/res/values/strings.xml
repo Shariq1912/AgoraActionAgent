@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Agora Action Agent</string>
+    <string name="accessibility_service_description">Agora Action Agent uses Android Accessibility Service to perform actions you request on your behalf, like sending messages or opening navigation.</string>
+</resources>
