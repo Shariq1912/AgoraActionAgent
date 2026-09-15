@@ -24,6 +24,7 @@ import io.agora.rtm.RtmConfig
 import io.agora.rtm.RtmConstants
 import io.agora.rtm.RtmEventListener
 import io.agora.rtm.SubscribeOptions
+import kotlinx.coroutines.delay
 import java.io.IOException
 import java.util.Locale
 import java.util.concurrent.CancellationException
@@ -79,6 +80,7 @@ class AgoraConversationSessionManager(
     private var currentAgentTurnId: Long? = null
     private var interruptRequestedTurnId: Long? = null
     private var lastInterruptRequestAtMs: Long = 0L
+
 
     init {
         scope.launch {
@@ -465,7 +467,7 @@ class AgoraConversationSessionManager(
                 val agentSpeaking = _snapshot.value.agentState == AgentConversationState.SPEAKING
 
                 if (audioSessionManager.shouldAcceptUserTranscript(text)) {
-                    val isFinal = payload.takeIf { payload.has("final") }?.optBoolean("final") != false
+                    val isFinal = payload.optBoolean("final", payload.optBoolean("is_final", true))
 
                     audioSessionManager.onUserTranscriptAccepted(
                         interruptingAgent = agentSpeaking,
@@ -474,6 +476,25 @@ class AgoraConversationSessionManager(
 
                     if (agentSpeaking) {
                         requestAgentInterruptFromUserSpeech(text)
+                    }
+
+                    // When the user finishes speaking (final transcript), classify intent on-device.
+                    // GeminiActionClassifier determines if it's a phone action — completely bypassing
+                    // the Agora cloud LLM so XML never enters the TTS pipeline.
+                    if (isFinal && text.isNotBlank()) {
+                        scope.launch {
+                            val command = com.androidengineers.agent_quickstart_android.accessibility
+                                .GeminiActionClassifier.classify(text)
+                            if (command != null) {
+                                Log.i(TAG, "GeminiClassifier detected action: $command")
+                                com.androidengineers.agent_quickstart_android.actions.ActionRouter.routeAction(
+                                    com.androidengineers.agent_quickstart_android.actions.ActionRequest(
+                                        tool = "agora_auto_pilot",
+                                        arguments = mapOf("command" to command),
+                                    )
+                                )
+                            }
+                        }
                     }
 
                     updateTranscript(payload)
@@ -485,42 +506,8 @@ class AgoraConversationSessionManager(
             "assistant.transcription" -> {
                 val text = payload.optString("text")
                 audioSessionManager.onAssistantTranscript(text)
-                
-                // Hackathon: check for <action tool="xxx" arg1="val1"/>
-                val actionRegex = Regex("<action\\s+tool=\"([^\"]+)\"\\s*(.*?)\\s*/?>")
-                val actionMatches = actionRegex.findAll(text).toList()
-                if (actionMatches.isNotEmpty()) {
-                    // Stop the agent speaking immediately so the XML tag is NOT read aloud by TTS.
-                    // We fire-and-forget the interrupt — errors are non-critical here.
-                    scope.launch {
-                        runCatching {
-                            val currentAgent = activeAgentId
-                            val currentChan = currentChannel
-                            if (currentAgent != null && currentChan != null) {
-                                repository.interruptConversation(
-                                    agentId = currentAgent,
-                                    channelName = currentChan,
-                                )
-                            }
-                        }
-                    }
-                    
-                    actionMatches.forEach { match ->
-                        val tool = match.groupValues[1]
-                        val argsString = match.groupValues[2]
-                        val argsMap = mutableMapOf<String, String>()
-                        
-                        val argRegex = Regex("([a-zA-Z0-9_]+)=\"([^\"]*)\"")
-                        argRegex.findAll(argsString).forEach { argMatch ->
-                            argsMap[argMatch.groupValues[1]] = argMatch.groupValues[2]
-                        }
-                        
-                        com.androidengineers.agent_quickstart_android.actions.ActionRouter.routeAction(
-                            com.androidengineers.agent_quickstart_android.actions.ActionRequest(tool, argsMap)
-                        )
-                    }
-                }
-
+                // Actions are now handled entirely via GeminiActionClassifier on user.transcription.
+                // The Agora cloud LLM only speaks conversationally — no XML tags are expected here.
                 updateTranscript(payload)
             }
 

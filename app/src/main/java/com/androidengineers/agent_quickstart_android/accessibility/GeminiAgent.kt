@@ -12,8 +12,10 @@ import java.net.URL
 object GeminiAgent {
     // We will hardcode the key for the hackathon MVP
     private const val API_KEY = "YOUR_GEMINI_API_KEY"
-    private const val API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=$API_KEY"
-    private const val FALLBACK_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=$API_KEY"
+    // Exposed for GeminiActionClassifier (same key, same project)
+    val API_KEY_PUBLIC: String get() = API_KEY
+    private const val API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=$API_KEY"
+    private const val FALLBACK_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=$API_KEY"
     suspend fun decideNextAction(xml: String, instruction: String, actionHistory: List<String>): String? {
         return withContext(Dispatchers.IO) {
             try {

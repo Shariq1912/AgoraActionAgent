@@ -37,8 +37,8 @@ class Settings:
         load_dotenv(SERVER_DIR / ".env", override=False)
         load_dotenv(SERVER_DIR / ".env.local", override=True)
         return cls(
-            agora_app_id=os.getenv("AGORA_APP_ID", "").strip(),
-            agora_app_certificate=os.getenv("AGORA_APP_CERTIFICATE", "").strip(),
+            agora_app_id=os.getenv("AGORA_APP_ID", "").strip().strip('"').strip("'"),
+            agora_app_certificate=os.getenv("AGORA_APP_CERTIFICATE", "").strip().strip('"').strip("'"),
             asr_model=os.getenv("ASR_MODEL", "nova-3"),
             llm_model=os.getenv("LLM_MODEL", "gpt-4o-mini"),
             tts_model=os.getenv("TTS_MODEL", "speech_2_6_turbo"),
