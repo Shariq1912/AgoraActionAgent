@@ -197,5 +197,9 @@ JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradle
 
 
 
-https://github.com/user-attachments/assets/f219b0f3-afb1-4dac-87c6-e2bf98fa8884
+
+
+https://github.com/user-attachments/assets/aec005e6-364a-424c-b1d6-7b225b9bf254
+
+
 
